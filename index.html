@@ -686,6 +686,10 @@ function renderToday(meso){
     html += `<div class="exercise ${allLogged?'done':''}">
       <div class="ex-head"><span class="ex-name">${ex.name}</span><span class="pill muted">${p.sets} sets</span></div>
       <div class="ex-meta">Target ${repLabel} · RIR ${p.targetRIR}${restLabel}${priorState?.note ? ` · <span style="color:var(--brass)">${priorState.note}</span>` : ""}</div>
+      ${!allLogged ? `<div class="row" style="gap:8px;margin-bottom:10px;">
+        <button class="btn ghost small" style="flex:1;" onclick="openSwapModal('${meso.id}',${wi},${dayIdx},'${p.exerciseId}','${p.muscle}')">Swap exercise</button>
+        <button class="btn ghost small" style="flex:1;" onclick="confirmSkipExercise('${meso.id}',${wi},${dayIdx},'${p.exerciseId}')">Skip exercise</button>
+      </div>` : ""}
       <div class="set-labels"><div></div><div>${weightColLabel}</div><div>${ex.holdSeconds?'Sec':'Reps'}</div><div>RIR</div></div>
       <div id="sets_${meso.id}_${wi}_${dayIdx}_${p.exerciseId}">
       ${renderSetRows(meso, wi, dayIdx, p, logs, startWeight, startReps, ex)}
@@ -756,6 +760,96 @@ function confirmSkip(mesoId, wi, di){
 }
 function doSkip(mesoId, wi, di){ skipSession(mesoId, wi, di); closeModal(); render(); }
 function closeModal(){ modalRoot.innerHTML = ""; }
+
+/* ---------------------------- EXERCISE SWAP / SKIP ------------------------- */
+// Lets you substitute an exercise (injury, occupied equipment, no space) for
+// any other eligible exercise that trains the same muscle, or drop it from
+// today's session entirely. Swap can apply just to today, or to every
+// remaining pending session in the mesocycle that still plans the original
+// exercise — past (done/skipped) sessions are never touched.
+let swapContext = null;
+function openSwapModal(mesoId, wi, di, exId, muscle){
+  const candidates = (byMuscle[muscle] || []).filter(e => e.id !== exId);
+  swapContext = {mesoId, wi, di, oldExId: exId, muscle};
+  if(!candidates.length){
+    modalRoot.innerHTML = `<div class="modal-back" onclick="if(event.target===this)closeModal()">
+      <div class="modal"><h3>No alternatives available</h3>
+      <p>Every exercise programmed for this muscle group needs equipment you don't have listed. You can still skip this exercise, or add more options by editing the EXERCISES list in the app's code.</p>
+      <div class="actions"><button class="btn ghost block" onclick="closeModal()">Close</button></div></div>
+    </div>`;
+    return;
+  }
+  modalRoot.innerHTML = `<div class="modal-back" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3>Swap ${exName(exId)}</h3>
+      <p>Pick a replacement that trains the same muscle.</p>
+      <div class="stack">
+        ${candidates.map(c=>`<button class="btn ghost block" onclick="selectSwapCandidate('${c.id}')">${c.name}</button>`).join("")}
+      </div>
+      <div class="actions" style="margin-top:14px;"><button class="btn ghost block" onclick="closeModal()">Cancel</button></div>
+    </div>
+  </div>`;
+}
+function selectSwapCandidate(newExId){
+  swapContext.newExId = newExId;
+  const ex = exObj(newExId);
+  modalRoot.innerHTML = `<div class="modal-back" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3>Swap in ${ex.name}</h3>
+      <p>Just for today, or for every remaining session in this mesocycle that has ${exName(swapContext.oldExId)} planned? Sessions you've already completed or skipped aren't touched either way.</p>
+      <div class="actions">
+        <button class="btn ghost" onclick="confirmSwap('session')">Today only</button>
+        <button class="btn primary" onclick="confirmSwap('mesocycle')">Rest of mesocycle</button>
+      </div>
+    </div>
+  </div>`;
+}
+function confirmSwap(scope){
+  const {mesoId, wi, di, oldExId, newExId} = swapContext;
+  const meso = getMeso(mesoId);
+  if(scope === "session"){
+    swapExerciseInSession(meso, wi, di, oldExId, newExId);
+  } else {
+    meso.weeks.forEach((week, wIdx)=>{
+      week.sessions.forEach((s, dIdx)=>{
+        if(s.status !== "pending") return; // never touch completed/skipped history
+        if(wIdx < wi || (wIdx === wi && dIdx < di)) return; // never touch the past
+        swapExerciseInSession(meso, wIdx, dIdx, oldExId, newExId);
+      });
+    });
+  }
+  saveState();
+  swapContext = null;
+  closeModal();
+  render();
+}
+function swapExerciseInSession(meso, wi, di, oldExId, newExId){
+  const session = meso.weeks[wi].sessions[di];
+  const p = session.planned.find(pp => pp.exerciseId === oldExId);
+  if(!p) return;
+  p.exerciseId = newExId;
+}
+function confirmSkipExercise(mesoId, wi, di, exId){
+  modalRoot.innerHTML = `<div class="modal-back" onclick="if(event.target===this)closeModal()">
+    <div class="modal">
+      <h3>Skip ${exName(exId)}?</h3>
+      <p>This drops it from today's session only — future sessions still include it, and today's sets for this muscle aren't made up elsewhere. If you'd rather keep the same volume, Swap it for a different movement instead.</p>
+      <div class="actions">
+        <button class="btn ghost" onclick="closeModal()">Cancel</button>
+        <button class="btn danger" onclick="doSkipExercise('${mesoId}',${wi},${di},'${exId}')">Skip exercise</button>
+      </div>
+    </div>
+  </div>`;
+}
+function doSkipExercise(mesoId, wi, di, exId){
+  const meso = getMeso(mesoId);
+  const session = meso.weeks[wi].sessions[di];
+  session.planned = session.planned.filter(p => p.exerciseId !== exId);
+  delete session.logs[exId];
+  saveState();
+  closeModal();
+  render();
+}
 
 /* ----- PROGRAM TAB ----- */
 function renderProgram(meso){
