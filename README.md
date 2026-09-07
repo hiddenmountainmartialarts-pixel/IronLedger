@@ -78,6 +78,3 @@ bottom:
   for 2–6 day splits.
 - `suggestNextLoad()` — the RIR-based autoregulation logic that decides how
   much weight to suggest next time you do an exercise.
-
-If you edit `index.html` after it's hosted, just re-upload the file — no
-build step, no dependencies.
