@@ -1,4 +1,4 @@
-[README.md](https://github.com/user-attachments/files/31895371/README.md)
+[README.md](https://github.com/user-attachments/files/31895727/README.md)
 # Iron Ledger — install on your phone
 
 This is a self-contained web app. Everything runs and stores data locally on
@@ -72,6 +72,15 @@ always ramping toward MRV. Would introduce a fourth landmark below MEV
 conservative RIR instead of climbing toward failure, skip the forced
 deload since fatigue stays low, and run open-ended instead of a fixed
 6-8 week block. Not built yet — noted here so the idea doesn't get lost.
+
+Searchable equipment catalog — a Settings flow where you search for a
+piece of equipment (by generic type/movement, e.g. "plate-loaded chest
+press," not by brand name — different manufacturers make equivalent
+machines) and add it, with the app automatically pulling in the right
+exercises and muscle-group tracking for it. Needs the equipment list to
+move from a fixed list in the code into your saved data, plus a much
+larger built-in exercise catalog to search against. A real project on its
+own, not a quick edit — noted here for when it's worth tackling.
 
 ## Editing the program logic
 
