@@ -1,4 +1,6 @@
-const CACHE = "iron-ledger-v1";
+// Bump this string any time you push an update to index.html/manifest.json —
+// it forces old cached versions on people's phones to get cleared out.
+const CACHE = "iron-ledger-v2";
 const ASSETS = ["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", (e) => {
@@ -13,12 +15,17 @@ self.addEventListener("activate", (e) => {
   self.clients.claim();
 });
 
+// Network-first: always try to fetch the latest version when there's a
+// connection, and only serve the cached copy if the network request fails
+// (i.e. genuinely offline). The old version cached whatever loaded first
+// and never checked again, which is why edits weren't showing up — this
+// keeps the app both updatable and still usable offline.
 self.addEventListener("fetch", (e) => {
   e.respondWith(
-    caches.match(e.request).then((cached) => cached || fetch(e.request).then((res) => {
+    fetch(e.request).then((res) => {
       const copy = res.clone();
       caches.open(CACHE).then((c) => c.put(e.request, copy));
       return res;
-    }).catch(() => cached))
+    }).catch(() => caches.match(e.request))
   );
 });
