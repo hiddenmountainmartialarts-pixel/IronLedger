@@ -1,4 +1,4 @@
-[README.md](https://github.com/user-attachments/files/31894514/README.md)
+[README.md](https://github.com/user-attachments/files/31895371/README.md)
 # Iron Ledger — install on your phone
 
 This is a self-contained web app. Everything runs and stores data locally on
@@ -63,6 +63,15 @@ absolute pounds lifted, so two lifters at very different strength levels
 can compete fairly — is a real goal but a separate, later project. It would
 need real backend sync (this version is purely local/offline by design), so
 it's intentionally out of scope for now.
+
+Sustainment / maintenance cycles — a mesocycle mode for easing off
+progression or holding current size/strength steady (life stress, an
+injury easing back in, or just being happy where you are) instead of
+always ramping toward MRV. Would introduce a fourth landmark below MEV
+(RP calls this MV — Maintenance Volume), run at flat volume with a
+conservative RIR instead of climbing toward failure, skip the forced
+deload since fatigue stays low, and run open-ended instead of a fixed
+6-8 week block. Not built yet — noted here so the idea doesn't get lost.
 
 ## Editing the program logic
 
