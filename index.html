@@ -380,10 +380,10 @@ function targetSetsForWeek(muscle, weekIdx, accumWeeks, isDeload){
   return Math.round(lm.mev + (lm.mrv - lm.mev) * frac);
 }
 function targetRIRForWeek(weekIdx, accumWeeks, isDeload){
-  if(isDeload) return 4.5;
+  if(isDeload) return 4;
   if(accumWeeks<=1) return 2;
   const frac = weekIdx / (accumWeeks-1);
-  return Math.round((3.5 - frac*3.0)*2)/2; // 3.5 RIR week1 -> ~0.5 RIR last accum week
+  return Math.round(4 - frac*4); // whole-number RIR: 4 in week 1 down to 0 in the final accumulation week
 }
 
 function buildWeek(meso, weekIdx, isDeload, split){
@@ -720,7 +720,7 @@ function renderSetRows(meso, wi, di, planned, logs, startWeight, startReps, ex){
         <div class="set-num">${i+1}</div>
         <input type="number" inputmode="decimal" id="w_${idPrefix}" value="${startWeight??''}" placeholder="lb">
         <input type="number" inputmode="numeric" id="r_${idPrefix}" value="${startReps??''}" placeholder="${ex.repRange[0]}-${ex.repRange[1]}">
-        <input type="number" inputmode="numeric" id="i_${idPrefix}" placeholder="${planned.targetRIR}">
+        <input type="number" inputmode="numeric" id="i_${idPrefix}" step="1" min="0" placeholder="${planned.targetRIR}">
       </div>`;
     }
   }
@@ -735,7 +735,7 @@ function renderSetRows(meso, wi, di, planned, logs, startWeight, startReps, ex){
 function submitSet(mesoId, wi, di, exId, idPrefix, targetRIR){
   const w = parseFloat(document.getElementById(`w_${idPrefix}`).value);
   const r = parseInt(document.getElementById(`r_${idPrefix}`).value, 10);
-  const rir = parseFloat(document.getElementById(`i_${idPrefix}`).value);
+  const rir = parseInt(document.getElementById(`i_${idPrefix}`).value, 10);
   if(isNaN(w) || isNaN(r) || isNaN(rir)){ alert("Enter weight, reps, and RIR before logging the set."); return; }
   logSet(mesoId, wi, di, exId, {weight:w, reps:r, rir, targetRIR, ts:Date.now()});
   render();
