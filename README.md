@@ -7,24 +7,6 @@ worker behavior working properly, it needs to be served from a real URL
 (not opened directly as a file), because Android/Chrome only registers
 service workers over http(s).
 
-**Easiest free option: GitHub Pages (5 minutes, no ongoing cost)**
-
-1. Create a free GitHub account if you don't have one.
-2. Create a new repository (e.g. `iron-ledger`), and upload all 5 files in
-   this folder (`index.html`, `manifest.json`, `sw.js`, `icon-192.png`,
-   `icon-512.png`) to it.
-3. In the repo, go to **Settings → Pages**, set Source to the `main` branch
-   / root, and save. GitHub will give you a URL like
-   `https://yourname.github.io/iron-ledger/`.
-4. Open that URL on your Android phone in Chrome.
-5. Tap the **⋮** menu → **Add to Home screen** (Chrome may also prompt you
-   automatically with "Install app"). Confirm.
-6. Launch it from your home screen — it opens full-screen, no browser bar,
-   and works offline after the first load.
-
-**Alternative:** any static host works the same way (Netlify, Vercel,
-Cloudflare Pages — all have free tiers and a drag-and-drop upload).
-
 ## Backing up your data
 
 All your mesocycles and logs live in your phone browser's local storage —
