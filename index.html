@@ -688,7 +688,7 @@ function renderToday(meso){
       <div class="ex-meta">Target ${repLabel} · RIR ${p.targetRIR}${restLabel}${priorState?.note ? ` · <span style="color:var(--brass)">${priorState.note}</span>` : ""}</div>
       ${!allLogged ? `<div class="row" style="gap:8px;margin-bottom:10px;">
         <button class="btn ghost small" style="flex:1;" onclick="openSwapModal('${meso.id}',${wi},${dayIdx},'${p.exerciseId}','${p.muscle}')">Swap exercise</button>
-        <button class="btn ghost small" style="flex:1;" onclick="confirmSkipExercise('${meso.id}',${wi},${dayIdx},'${p.exerciseId}')">Skip exercise</button>
+        <button class="btn ghost small" style="flex:1;" onclick="confirmSkipExercise('${meso.id}',${wi},${dayIdx},'${p.exerciseId}')">${logs.length>0?'Stop here':'Skip exercise'}</button>
       </div>` : ""}
       <div class="set-labels"><div></div><div>${weightColLabel}</div><div>${ex.holdSeconds?'Sec':'Reps'}</div><div>RIR</div></div>
       <div id="sets_${meso.id}_${wi}_${dayIdx}_${p.exerciseId}">
@@ -704,32 +704,81 @@ function renderToday(meso){
 
 function renderSetRows(meso, wi, di, planned, logs, startWeight, startReps, ex){
   let rows = "";
-  const totalRows = Math.max(planned.sets, logs.length);
-  for(let i=0;i<totalRows;i++){
-    const logged = logs[i];
-    const idPrefix = `${meso.id}_${wi}_${di}_${planned.exerciseId}_${i}`;
-    if(logged){
+  const mesoId = meso.id, exId = planned.exerciseId;
+  // Already-logged sets: read-only display, but each gets a real Edit
+  // control — a mis-typed rep count, a misjudged RIR, or a failed rep you
+  // want to correct is always fixable, not just prevented going forward.
+  logs.forEach((logged, i) => {
+    const isEditing = editingSet && editingSet.mesoId===mesoId && editingSet.wi===wi && editingSet.di===di && editingSet.exId===exId && editingSet.index===i;
+    if(isEditing){
+      const idPrefix = `edit_${mesoId}_${wi}_${di}_${exId}_${i}`;
+      rows += `<div class="set-row">
+        <div class="set-num">${i+1}</div>
+        <input type="number" inputmode="decimal" id="w_${idPrefix}" value="${logged.weight}" onfocus="this.select()">
+        <input type="number" inputmode="numeric" id="r_${idPrefix}" value="${logged.reps}" onfocus="this.select()">
+        <input type="number" inputmode="numeric" id="i_${idPrefix}" step="1" min="0" value="${logged.rir}" onfocus="this.select()">
+      </div>
+      <div class="row" style="gap:8px;margin:4px 0 8px;">
+        <button class="btn small" style="flex:1;" onclick="saveEditedSet('${mesoId}',${wi},${di},'${exId}',${i},'${idPrefix}')">Save correction</button>
+        <button class="btn ghost small" style="flex:1;" onclick="cancelEditSet()">Cancel</button>
+      </div>`;
+    } else {
       rows += `<div class="set-row logged">
         <div class="set-num">${i+1}</div>
         <input type="number" value="${logged.weight}" disabled>
         <input type="number" value="${logged.reps}" disabled>
         <input type="number" value="${logged.rir}" disabled>
-      </div>`;
-    } else {
-      rows += `<div class="set-row">
-        <div class="set-num">${i+1}</div>
-        <input type="number" inputmode="decimal" id="w_${idPrefix}" value="${startWeight??''}" placeholder="lb">
-        <input type="number" inputmode="numeric" id="r_${idPrefix}" value="${startReps??''}" placeholder="${ex.repRange[0]}-${ex.repRange[1]}">
-        <input type="number" inputmode="numeric" id="i_${idPrefix}" step="1" min="0" placeholder="${planned.targetRIR}">
-      </div>`;
+      </div>
+      <button class="btn ghost small" style="margin:-4px 0 8px;padding:4px 10px;font-size:11.5px;" onclick="startEditSet('${mesoId}',${wi},${di},'${exId}',${i})">Edit set ${i+1}</button>`;
     }
-  }
+  });
+  // The ONE next set, if any remain — previously every remaining set
+  // rendered as an editable row at once, which meant whatever you typed
+  // into the "wrong" one (not the one the Log button actually read from)
+  // silently vanished on the next screen refresh. Showing exactly one
+  // live row removes that ambiguity entirely.
   if(logs.length < planned.sets){
     const i = logs.length;
-    const idPrefix = `${meso.id}_${wi}_${di}_${planned.exerciseId}_${i}`;
-    rows += `<button class="btn small block" style="margin-top:4px;" onclick="submitSet('${meso.id}',${wi},${di},'${planned.exerciseId}','${idPrefix}',${planned.targetRIR})">Log set ${i+1}</button>`;
+    const idPrefix = `${mesoId}_${wi}_${di}_${exId}_${i}`;
+    rows += `<div class="set-row">
+      <div class="set-num">${i+1}</div>
+      <input type="number" inputmode="decimal" id="w_${idPrefix}" value="${startWeight??''}" placeholder="lb" onfocus="this.select()">
+      <input type="number" inputmode="numeric" id="r_${idPrefix}" value="${startReps??''}" placeholder="${ex.repRange[0]}-${ex.repRange[1]}" onfocus="this.select()">
+      <input type="number" inputmode="numeric" id="i_${idPrefix}" step="1" min="0" placeholder="${planned.targetRIR}">
+    </div>
+    <button class="btn small block" style="margin-top:4px;" onclick="submitSet('${mesoId}',${wi},${di},'${exId}','${idPrefix}',${planned.targetRIR})">Log set ${i+1}</button>`;
   }
   return rows;
+}
+
+/* ---------------------------- EDIT A LOGGED SET ----------------------------- */
+let editingSet = null;
+function startEditSet(mesoId, wi, di, exId, index){
+  editingSet = {mesoId, wi, di, exId, index};
+  render();
+}
+function cancelEditSet(){
+  editingSet = null;
+  render();
+}
+function saveEditedSet(mesoId, wi, di, exId, index, idPrefix){
+  const w = parseFloat(document.getElementById(`w_${idPrefix}`).value);
+  const r = parseInt(document.getElementById(`r_${idPrefix}`).value, 10);
+  const rir = parseInt(document.getElementById(`i_${idPrefix}`).value, 10);
+  if(isNaN(w) || isNaN(r) || isNaN(rir)){ alert("Enter weight, reps, and RIR before saving."); return; }
+  const meso = getMeso(mesoId);
+  const session = meso.weeks[wi].sessions[di];
+  const entry = session.logs[exId][index];
+  entry.weight = w; entry.reps = r; entry.rir = rir;
+  // Recompute next-session progression using the corrected data, so a
+  // fixed RIR/rep entry actually changes what gets suggested next time.
+  const ex = exObj(exId);
+  const targetRIR = entry.targetRIR ?? 2;
+  const pres = nextPrescription(ex, meso.exerciseState[exId], session.logs[exId], targetRIR);
+  meso.exerciseState[exId] = { weight: pres.weight, repTarget: pres.repTarget, note: pres.note, lastRIR: entry.rir };
+  saveState();
+  editingSet = null;
+  render();
 }
 
 function submitSet(mesoId, wi, di, exId, idPrefix, targetRIR){
@@ -830,22 +879,51 @@ function swapExerciseInSession(meso, wi, di, oldExId, newExId){
   p.exerciseId = newExId;
 }
 function confirmSkipExercise(mesoId, wi, di, exId){
-  modalRoot.innerHTML = `<div class="modal-back" onclick="if(event.target===this)closeModal()">
-    <div class="modal">
-      <h3>Skip ${exName(exId)}?</h3>
-      <p>This drops it from today's session only — future sessions still include it, and today's sets for this muscle aren't made up elsewhere. If you'd rather keep the same volume, Swap it for a different movement instead.</p>
-      <div class="actions">
-        <button class="btn ghost" onclick="closeModal()">Cancel</button>
-        <button class="btn danger" onclick="doSkipExercise('${mesoId}',${wi},${di},'${exId}')">Skip exercise</button>
+  const meso = getMeso(mesoId);
+  const session = meso.weeks[wi].sessions[di];
+  const logs = session.logs[exId] || [];
+  if(logs.length > 0){
+    // Sets already done — e.g. you felt a strain and need to stop. Never
+    // discard what you already logged; just close out the exercise at
+    // however many sets you actually completed.
+    modalRoot.innerHTML = `<div class="modal-back" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>Stop ${exName(exId)} here?</h3>
+        <p>This keeps the ${logs.length} set${logs.length===1?'':'s'} you already logged and ends the exercise there for today — nothing logged is lost. Future sessions still have the full prescribed sets.</p>
+        <div class="actions">
+          <button class="btn ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn danger" onclick="doStopExerciseHere('${mesoId}',${wi},${di},'${exId}')">Stop here</button>
+        </div>
       </div>
-    </div>
-  </div>`;
+    </div>`;
+  } else {
+    modalRoot.innerHTML = `<div class="modal-back" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <h3>Skip ${exName(exId)}?</h3>
+        <p>This drops it from today's session only — future sessions still include it, and today's sets for this muscle aren't made up elsewhere. If you'd rather keep the same volume, Swap it for a different movement instead.</p>
+        <div class="actions">
+          <button class="btn ghost" onclick="closeModal()">Cancel</button>
+          <button class="btn danger" onclick="doSkipExercise('${mesoId}',${wi},${di},'${exId}')">Skip exercise</button>
+        </div>
+      </div>
+    </div>`;
+  }
 }
 function doSkipExercise(mesoId, wi, di, exId){
   const meso = getMeso(mesoId);
   const session = meso.weeks[wi].sessions[di];
   session.planned = session.planned.filter(p => p.exerciseId !== exId);
   delete session.logs[exId];
+  saveState();
+  closeModal();
+  render();
+}
+function doStopExerciseHere(mesoId, wi, di, exId){
+  const meso = getMeso(mesoId);
+  const session = meso.weeks[wi].sessions[di];
+  const p = session.planned.find(pp => pp.exerciseId === exId);
+  const logs = session.logs[exId] || [];
+  if(p && logs.length > 0) p.sets = logs.length; // cap prescribed sets to what was actually completed; logs untouched
   saveState();
   closeModal();
   render();
